@@ -102,26 +102,16 @@ def check_buy_sell_signals(df):
 
 def run_bot():
     print(f"Fetching new bars for {datetime.now().isoformat()}")
-    # bars = exchange.fetch_ohlcv('BTC/USDT', timeframe='1h', limit=144)
-    # df = pd.DataFrame(bars[:-1], columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
-    # df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
-    # supertrend_data = supertrend(df)
+    bars = exchange.fetch_ohlcv('BTC/USDT', timeframe='1h', limit=100)
+    df = pd.DataFrame(bars[:-1], columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
+    df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
+    supertrend_data = supertrend(df)
     # print(supertrend_data)
-    # print(talib.DEMA(numpy.array(arr144), 100))
 
-    # check_buy_sell_signals(supertrend_data)
+    check_buy_sell_signals(supertrend_data)
 
 
 schedule.every(10).seconds.do(run_bot)
-
-requests.get('https://sctapi.ftqq.com/SCT143186TIvKuCgmwWnzzzGQ6mE5qmyFU.send?title=messagetitle&desp=messagecontent')
-
-# print(talib.DEMA(30000, timeperiod=30))
-# real = talib.DEMA(30000, timeperiod=30)
-# run_bot()
-# ran = numpy.random.random(100)
-# arr = numpy.array([100.0, 200.1])
-# print(talib.DEMA(arr, 10))
 
 while True:
     schedule.run_pending()
