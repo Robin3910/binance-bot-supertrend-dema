@@ -2,7 +2,6 @@ import ccxt
 import config
 import schedule
 import pandas as pd
-import talib
 import numpy
 import requests
 
@@ -74,10 +73,11 @@ def check_buy_sell_signals(df):
     global in_position
 
     print("checking for buy and sell signals")
-    print(df.tail(5))
+    #print(df.tail(5))
     last_row_index = len(df.index) - 1
     previous_row_index = last_row_index - 1
-
+    #print(df['in_uptrend'][previous_row_index])
+    #print(df['in_uptrend'][last_row_index])
     if not df['in_uptrend'][previous_row_index] and df['in_uptrend'][last_row_index]:
         print("changed to uptrend, buy")
         if not in_position:
