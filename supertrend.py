@@ -80,20 +80,20 @@ def check_buy_sell_signals(df):
     #print(df['in_uptrend'][last_row_index])
     if not df['in_uptrend'][previous_row_index] and df['in_uptrend'][last_row_index]:
         print("changed to uptrend, buy")
+        requests.get(
+                'https://sctapi.ftqq.com/SCT143186TIvKuCgmwWnzzzGQ6mE5qmyFU.send?title=btc/buy&desp=messagecontent')
         if not in_position:
             # order = exchange.create_market_buy_order('ETH/USD', 0.05)
-            requests.get(
-                'https://sctapi.ftqq.com/SCT143186TIvKuCgmwWnzzzGQ6mE5qmyFU.send?title=btc/buy&desp=messagecontent')
             # print(order)
             in_position = True
         else:
             print("already in position, nothing to do")
     
     if df['in_uptrend'][previous_row_index] and not df['in_uptrend'][last_row_index]:
-        if in_position:
-            print("changed to downtrend, sell")
-            requests.get(
+        print("changed to downtrend, sell")
+        requests.get(
                 'https://sctapi.ftqq.com/SCT143186TIvKuCgmwWnzzzGQ6mE5qmyFU.send?title=btc/sell&desp=messagecontent')
+        if in_position:
             # order = exchange.create_market_sell_order('ETH/USD', 0.05)
             # print(order)
             in_position = False
