@@ -2,17 +2,19 @@ import ccxt
 import config
 import schedule
 import pandas as pd
-import numpy
 import requests
+import sys
 
 pd.set_option('display.max_rows', None)
 
 import warnings
 warnings.filterwarnings('ignore')
 
-import numpy as np
 from datetime import datetime
 import time
+
+coin = sys.argv[1]
+print(coin)
 
 exchange = ccxt.binanceus({
     "apiKey": config.BINANCE_API_KEY,
@@ -76,12 +78,10 @@ def check_buy_sell_signals(df):
     print(df.tail(5))
     last_row_index = len(df.index) - 1
     previous_row_index = last_row_index - 1
-    #print(df['in_uptrend'][previous_row_index])
-    #print(df['in_uptrend'][last_row_index])
     if not df['in_uptrend'][previous_row_index] and df['in_uptrend'][last_row_index]:
         print("changed to uptrend, buy")
         requests.get(
-                'https://sctapi.ftqq.com/SCT143186TIvKuCgmwWnzzzGQ6mE5qmyFU.send?title=btc/buy&desp=messagecontent')
+                'https://sctapi.ftqq.com/SCT143186TIvKuCgmwWnzzzGQ6mE5qmyFU.send?title='+coin+'/buy')
         if not in_position:
             # order = exchange.create_market_buy_order('ETH/USD', 0.05)
             # print(order)
@@ -92,7 +92,7 @@ def check_buy_sell_signals(df):
     if df['in_uptrend'][previous_row_index] and not df['in_uptrend'][last_row_index]:
         print("changed to downtrend, sell")
         requests.get(
-                'https://sctapi.ftqq.com/SCT143186TIvKuCgmwWnzzzGQ6mE5qmyFU.send?title=btc/sell&desp=messagecontent')
+                'https://sctapi.ftqq.com/SCT143186TIvKuCgmwWnzzzGQ6mE5qmyFU.send?title='+coin+'/sell')
         if in_position:
             # order = exchange.create_market_sell_order('ETH/USD', 0.05)
             # print(order)
@@ -102,7 +102,7 @@ def check_buy_sell_signals(df):
 
 def run_bot():
     print(f"Fetching new bars for {datetime.now().isoformat()}")
-    bars = exchange.fetch_ohlcv('BTC/USDT', timeframe='1h', limit=100)
+    bars = exchange.fetch_ohlcv(coin, timeframe='1h', limit=100)
     df = pd.DataFrame(bars[:-1], columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
     df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
     supertrend_data = supertrend(df)
