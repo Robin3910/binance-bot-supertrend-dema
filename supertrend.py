@@ -73,7 +73,7 @@ def check_buy_sell_signals(df):
     global in_position
 
     print("checking for buy and sell signals")
-    #print(df.tail(5))
+    print(df.tail(5))
     last_row_index = len(df.index) - 1
     previous_row_index = last_row_index - 1
     #print(df['in_uptrend'][previous_row_index])
@@ -111,7 +111,7 @@ def run_bot():
     check_buy_sell_signals(supertrend_data)
 
 
-schedule.every(10).seconds.do(run_bot)
+schedule.every(3600).seconds.do(run_bot)
 
 while True:
     schedule.run_pending()
