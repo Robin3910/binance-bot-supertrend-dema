@@ -4,6 +4,10 @@ import schedule
 import pandas as pd
 import requests
 import sys
+import numpy
+import talib
+
+
 
 pd.set_option('display.max_rows', None)
 
@@ -20,8 +24,6 @@ exchange = ccxt.binanceus({
     "apiKey": config.BINANCE_API_KEY,
     "secret": config.BINANCE_SECRET_KEY
 })
-arr144 = []
-arr169 = []
 
 def tr(data):
     data['previous_close'] = data['close'].shift(1)
@@ -80,8 +82,8 @@ def check_buy_sell_signals(df):
     previous_row_index = last_row_index - 1
     if not df['in_uptrend'][previous_row_index] and df['in_uptrend'][last_row_index]:
         print("changed to uptrend, buy")
-        requests.get(
-                'https://sctapi.ftqq.com/SCT143186TIvKuCgmwWnzzzGQ6mE5qmyFU.send?title='+coin+'/buy')
+        # requests.get(
+        #         'https://sctapi.ftqq.com/SCT143186TIvKuCgmwWnzzzGQ6mE5qmyFU.send?title='+coin+'/buy')
         if not in_position:
             # order = exchange.create_market_buy_order('ETH/USD', 0.05)
             # print(order)
@@ -91,8 +93,8 @@ def check_buy_sell_signals(df):
     
     if df['in_uptrend'][previous_row_index] and not df['in_uptrend'][last_row_index]:
         print("changed to downtrend, sell")
-        requests.get(
-                'https://sctapi.ftqq.com/SCT143186TIvKuCgmwWnzzzGQ6mE5qmyFU.send?title='+coin+'/sell')
+        # requests.get(
+        #         'https://sctapi.ftqq.com/SCT143186TIvKuCgmwWnzzzGQ6mE5qmyFU.send?title='+coin+'/sell')
         if in_position:
             # order = exchange.create_market_sell_order('ETH/USD', 0.05)
             # print(order)
@@ -102,16 +104,30 @@ def check_buy_sell_signals(df):
 
 def run_bot():
     print(f"Fetching new bars for {datetime.now().isoformat()}")
-    bars = exchange.fetch_ohlcv(coin, timeframe='1h', limit=100)
-    df = pd.DataFrame(bars[:-1], columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
-    df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
-    supertrend_data = supertrend(df)
+    bars = exchange.fetch_ohlcv(coin, timeframe='1h', since=1586394000000, limit=2000)
+    print(bars)
+    closeArr=[]
+    for bar in bars:
+        closeArr.append(bar[4])
+
+    calcDEMA(closeArr, 144)
+    calcDEMA(closeArr, 169)
+    # df = pd.DataFrame(bars[:-1], columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
+    # df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
+    # supertrend_data = supertrend(df)
     # print(supertrend_data)
+    #
+    # check_buy_sell_signals(supertrend_data)
 
-    check_buy_sell_signals(supertrend_data)
+def calcDEMA(arr, type):
+    close = numpy.asarray(arr)
+    output = talib.DEMA(close, timeperiod=type)
+    a = output.tolist()
+    print(a[len(a) - 1])
+    return a[len(a) - 1]
 
 
-schedule.every(60).seconds.do(run_bot)
+schedule.every(5).seconds.do(run_bot)
 
 while True:
     schedule.run_pending()
