@@ -19,6 +19,16 @@ import time
 
 coin = sys.argv[1]
 print(coin)
+# 1 buy 2 sell
+direction = 1
+# 是否已满仓
+inPosition = False
+# 开仓价格
+buyPrice = 0
+
+bars = []
+
+revenueRate = 0
 
 exchange = ccxt.binanceus({
     "apiKey": config.BINANCE_API_KEY,
@@ -51,8 +61,6 @@ def supertrend(df, period=34, atr_multiplier=3):
 
     for current in range(1, len(df.index)):
         previous = current - 1
-        arr144.append(df['close'][current])
-        arr169.append(df['close'][current])
 
         if df['close'][current] > df['upperband'][previous]:
             df['in_uptrend'][current] = True
@@ -71,47 +79,43 @@ def supertrend(df, period=34, atr_multiplier=3):
     return df
 
 
-in_position = False
 
 def check_buy_sell_signals(df):
-    global in_position
 
     print("checking for buy and sell signals")
     print(df.tail(5))
     last_row_index = len(df.index) - 1
     previous_row_index = last_row_index - 1
     if not df['in_uptrend'][previous_row_index] and df['in_uptrend'][last_row_index]:
+        closeArr = []
+        for bar in bars:
+            closeArr.append(bar[4])
+
+        dema144 = calcDEMA(closeArr, 144)
+        dema169 = calcDEMA(closeArr, 169)
         print("changed to uptrend, buy")
+        # 微信通知
         # requests.get(
         #         'https://sctapi.ftqq.com/SCT143186TIvKuCgmwWnzzzGQ6mE5qmyFU.send?title='+coin+'/buy')
-        if not in_position:
-            # order = exchange.create_market_buy_order('ETH/USD', 0.05)
-            # print(order)
-            in_position = True
-        else:
-            print("already in position, nothing to do")
+        if not inPosition:
+            if df["open"][last_row_index] >= dema169 :
+
+
+
+
     
     if df['in_uptrend'][previous_row_index] and not df['in_uptrend'][last_row_index]:
         print("changed to downtrend, sell")
+        # 微信通知
         # requests.get(
         #         'https://sctapi.ftqq.com/SCT143186TIvKuCgmwWnzzzGQ6mE5qmyFU.send?title='+coin+'/sell')
-        if in_position:
-            # order = exchange.create_market_sell_order('ETH/USD', 0.05)
-            # print(order)
-            in_position = False
-        else:
-            print("You aren't in position, nothing to sell")
+
 
 def run_bot():
     print(f"Fetching new bars for {datetime.now().isoformat()}")
     bars = exchange.fetch_ohlcv(coin, timeframe='1h', since=1586394000000, limit=2000)
     print(bars)
-    closeArr=[]
-    for bar in bars:
-        closeArr.append(bar[4])
 
-    calcDEMA(closeArr, 144)
-    calcDEMA(closeArr, 169)
     # df = pd.DataFrame(bars[:-1], columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
     # df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
     # supertrend_data = supertrend(df)
