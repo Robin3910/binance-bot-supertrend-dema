@@ -6,6 +6,8 @@ import requests
 import sys
 import numpy
 import talib
+import time
+import json
 
 pd.set_option('display.max_rows', None)
 
@@ -13,7 +15,22 @@ import warnings
 
 warnings.filterwarnings('ignore')
 
-import time
+
+# 计算DEMA
+def calcDEMA(arr, type):
+    close = numpy.asarray(arr)
+    output = talib.DEMA(close, timeperiod=type)
+    a = output.tolist()
+    print(a[len(a) - 1])
+    return a[len(a) - 1]
+
+
+def transTime(timestamp):
+    # 转换为localtime
+    time_local = time.localtime(timestamp)
+    # 转换为新的时间格式
+    return time.strftime("%Y-%m-%d %H:%M:%S", time_local)
+
 
 coin = config.COIN
 print(coin)
@@ -38,13 +55,35 @@ exchange = ccxt.binanceus({
 # 转换成时间数组
 timeArray = time.strptime(config.PERIOD_START, "%Y-%m-%d %H:%M:%S")
 # 转换成时间戳
-timestamp = time.mktime(timeArray)
+startTimeStamp = time.mktime(timeArray) * 1000
+
+# 转换成时间数组
+timeArray = time.strptime(config.PERIOD_END, "%Y-%m-%d %H:%M:%S")
+# 转换成时间戳
+endTimeStamp = time.mktime(timeArray) * 1000
 
 # 源数据，每次最多1000根K线
-sourceData = exchange.fetch_ohlcv(coin, timeframe='1h', since=int(timestamp * 1000 - config.DEMA_PRE_FIX_TIME),
-                                  limit=1000)
+# sourceData = exchange.fetch_ohlcv(coin, timeframe='1h', since=int(timestamp * 1000 - config.DEMA_PRE_FIX_TIME),
+#                                   limit=1000)
+f = open(config.SOURCE_DATA_PATH, encoding="utf-8")
+jsonData = f.read()
+f.close()
+sourceData = json.loads(jsonData)
 # 源数据索引
 index = 0
+
+# 文件名
+# fileName = config.COIN.split('/')[0] + config.PERIOD_START.split(' ')[0] + '-' + \
+#            (transTime(sourceData[len(sourceData) - 1][0] / 1000)).split(' ')[0] + '.txt'
+# with open(fileName, "a") as file:
+#     file.write(
+#         "start: " + config.PERIOD_START + "| end: " + str(transTime(sourceData[len(sourceData) - 1][0] / 1000)) + " \n")
+# 文件名
+fileName = config.COIN.split('/')[0] + config.PERIOD_START.split(' ')[0] + '-' + config.PERIOD_END.split(' ')[
+    0] + '.txt'
+with open(fileName, "a") as file:
+    file.write(
+        "start: " + config.PERIOD_START + "| end: " + config.PERIOD_END + " \n")
 
 
 def tr(data):
@@ -115,6 +154,10 @@ def check_buy_sell_signals(df):
             inPosition = False
             revenueRate -= (df["close"][last_row_index] - buyPrice) / buyPrice
             print("sell direction, close the position, revenue -", (df["open"][last_row_index] - buyPrice) / buyPrice)
+            with open(fileName, "a") as file:
+                file.write(str(df["timestamp"][
+                                   last_row_index]) + "change direction|sell direction|close the position|revenue: " + str(
+                    revenueRate) + " \n")
         # 微信通知
         # requests.get(
         #         'https://sctapi.ftqq.com/SCT143186TIvKuCgmwWnzzzGQ6mE5qmyFU.send?title='+coin+'/buy')
@@ -122,7 +165,9 @@ def check_buy_sell_signals(df):
             inPosition = True
             buyPrice = df["close"][last_row_index]
             direction = 1
-            print("buy: ", df["timestamp"][last_row_index], "|", buyPrice, "|")
+            print("buy: ", df["timestamp"][last_row_index], "|", buyPrice)
+            with open(fileName, "a") as file:
+                file.write("buy: " + str(df["timestamp"][last_row_index]) + "|" + str(buyPrice) + " \n")
 
     # 出现空头信号
     if df['in_uptrend'][previous_row_index] and not df['in_uptrend'][last_row_index]:
@@ -132,6 +177,9 @@ def check_buy_sell_signals(df):
             inPosition = False
             revenueRate -= (buyPrice - df["close"][last_row_index]) / buyPrice
             print("buy direction, close the position, revenue -", (buyPrice - df["open"][last_row_index]) / buyPrice)
+            with open(fileName, "a") as file:
+                file.write(str(df["timestamp"][last_row_index]) + "|sell direction|close the position|revenue: " + str(
+                    revenueRate) + " \n")
 
         # 微信通知
         # requests.get(
@@ -141,6 +189,8 @@ def check_buy_sell_signals(df):
             buyPrice = df["close"][last_row_index]
             direction = 2
             print("sell: ", df["timestamp"][last_row_index], "|", buyPrice, "|")
+            with open(fileName, "a") as file:
+                file.write("sell: " + str(df["timestamp"][last_row_index]) + "|" + str(buyPrice) + " \n")
 
 
 def init():
@@ -150,7 +200,10 @@ def init():
     global closeArr
     # init
     # 需要加载足够的K线才能开始计算DEMA，否则会出现nan
-    while index < 400:
+    while sourceData[index][0] < (startTimeStamp - config.DEMA_PRE_FIX_TIME):
+        index += 1
+
+    while sourceData[index][0] < startTimeStamp:
         bars.append(sourceData[index])
         closeArr.append(sourceData[index][4])
         index += 1
@@ -167,9 +220,15 @@ def run_bot():
     global revenueRate
     global sourceData
 
+    if sourceData[index][0] > endTimeStamp:
+        sys.exit()
+
     # 每次循环加入一根K线
     bars.append(sourceData[index])
     closeArr.append(sourceData[index][4])
+
+    if len(bars) > 1000:
+        del bars[0:400]
 
     # 判断是否平仓，收益率
     if inPosition:
@@ -177,10 +236,14 @@ def run_bot():
             print("buy direction, close the position, +", config.PROFIT_POINT, " revenue")
             inPosition = False
             revenueRate += config.PROFIT_POINT
+            with open(fileName, "a") as file:
+                file.write("buy direction, close the position, gain revenue, cur revenue: " + str(revenueRate) + " \n")
         if direction == 2 and ((buyPrice - sourceData[index][3]) / buyPrice >= config.PROFIT_POINT):
             print("sell direction, close the position, +", config.PROFIT_POINT, " revenue")
             inPosition = False
             revenueRate += config.PROFIT_POINT
+            with open(fileName, "a") as file:
+                file.write("sell direction, close the position, gain revenue, cur revenue: " + str(revenueRate) + " \n")
 
     df = pd.DataFrame(bars, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
     df['timestamp'] = pd.to_datetime(df['timestamp'], origin='1970-01-01 08:00:00', unit='ms')
@@ -196,21 +259,14 @@ def run_bot():
         print("buyPrice: ", buyPrice)
 
 
-# 计算DEMA
-def calcDEMA(arr, type):
-    close = numpy.asarray(arr)
-    output = talib.DEMA(close, timeperiod=type)
-    a = output.tolist()
-    print(a[len(a) - 1])
-    return a[len(a) - 1]
-
-
 init()
 # time.sleep(5)
 # schedule.every(0.2).seconds.do(run_bot)
 
 while True:
+    # if index == len(sourceData):
+    #     sys.exit()
     run_bot()
-    time.sleep(1)
+    # time.sleep(0.2)
     # schedule.run_pending()
     # time.sleep(1)
